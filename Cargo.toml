@@ -1,6 +1,11 @@
 [package]
 name = "mxtransform"
-version = "0.1.0"
+version = "1.0.0"
+authors = ["GGORG <GGORG0@protonmail.com>"]
+license = "GPL-3.0-or-later"
+description = "A CLI tool to transform images using matrix operations"
+repository = "https://github.com/GGORG0/mxtransform"
+categories = ["command-line-utilities", "multimedia::images"]
 edition = "2021"
 
 [dependencies]
