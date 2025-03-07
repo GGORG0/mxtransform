@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 
-use color_eyre::{Result, eyre::ContextCompat};
+use color_eyre::{eyre::ContextCompat, Result};
 use image::{ImageReader, RgbImage};
 use ndarray::Array3;
 
-pub type ImageArray = ndarray::ArrayBase<ndarray::OwnedRepr<u8>, ndarray::Dim<[usize; 3]>>;
+pub(crate) type ImageArray = ndarray::ArrayBase<ndarray::OwnedRepr<u8>, ndarray::Dim<[usize; 3]>>;
 
-pub fn load_image(path: &PathBuf) -> Result<ImageArray> {
+pub(crate) fn load_image(path: &PathBuf) -> Result<ImageArray> {
     let img = ImageReader::open(path)?.decode()?.into_rgb8();
 
     let (width, height) = (img.width() as usize, img.height() as usize);
@@ -17,7 +17,7 @@ pub fn load_image(path: &PathBuf) -> Result<ImageArray> {
     )?)
 }
 
-pub fn save_image(array: ImageArray, path: &PathBuf) -> Result<()> {
+pub(crate) fn save_image(array: ImageArray, path: &PathBuf) -> Result<()> {
     let array = array.as_standard_layout().into_owned();
 
     let (height, width, _) = array.dim();
