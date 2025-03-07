@@ -18,9 +18,13 @@ struct Args {
     #[arg(short, long)]
     output: PathBuf,
 
-    /// The transformation matrix to apply to the image (Xx, Xy, Yx, Yy)
+    /// The transformation matrix to apply to the image (Xx,Xy,Yx,Yy)
     #[arg(short, long, value_parser = parse_matrix)]
     matrix: [f32; 4],
+
+    /// The amount to offset the image by (X,Y)
+    #[arg(short = 'f', long, value_parser = parse_offset)]
+    offset: Option<[isize; 2]>,
 }
 
 fn parse_matrix(s: &str) -> Result<[f32; 4], String> {
@@ -35,6 +39,20 @@ fn parse_matrix(s: &str) -> Result<[f32; 4], String> {
     }
 
     Ok([values[0], values[2], values[1], values[3]])
+}
+
+fn parse_offset(s: &str) -> Result<[isize; 2], String> {
+    let values: Vec<isize> = s
+        .split(',')
+        .map(|v| v.trim().parse::<isize>())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    if values.len() != 2 {
+        return Err(format!("Expected 2 elements, got {}", values.len()));
+    }
+
+    Ok([values[0], values[1]])
 }
 
 fn main() -> Result<()> {
@@ -57,6 +75,12 @@ fn main() -> Result<()> {
         println!("|");
     }
 
+    if let Some(offset) = &args.offset {
+        println!("Offset: ({}, {})", offset[0], offset[1]);
+    }
+
+    let offset = args.offset.unwrap_or([0, 0]);
+
     let mut output = Array3::<u8>::zeros((height, width, 3));
 
     let time = Instant::now();
@@ -73,8 +97,8 @@ fn main() -> Result<()> {
                     .unwrap();
                 let transformed = matrix.dot(&pos);
 
-                let new_x = transformed[[0, 0]].round() as isize;
-                let new_y = height as isize - transformed[[1, 0]].round() as isize - 1;
+                let new_x = transformed[[0, 0]].round() as isize + offset[0];
+                let new_y = height as isize - transformed[[1, 0]].round() as isize - 1 - offset[1];
 
                 if new_x >= 0 && new_x < width as isize && new_y >= 0 && new_y < height as isize {
                     output
