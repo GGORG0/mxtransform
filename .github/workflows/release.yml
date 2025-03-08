@@ -42,25 +42,37 @@ jobs:
       - name: Show the version
         run: |
           echo "version is: $VERSION"
+      - name: Check for existing release
+        run: |
+          res="$(gh release view $VERSION --json id,tagName,createdAt,publishedAt)"
+          if [ $? -eq 0 ]; then
+            echo "Release already exists!"
+            echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "Release doesn't exist."
+            echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
+          fi
+          echo -e "GH CLI output:\n$res"
       - name: Create tag
         id: tag_create
+        if: env.RELEASE_EXISTS == 'false'
         uses: rickstaa/action-create-tag@v1
         with:
-          tag: "v${{ env.VERSION }}"
-          tag_exists_error: false
+          tag: "${{ env.VERSION }}"
+          force_push_tag: true
           message: "Release ${{ needs.get-crate-metadata.outputs.crate_name }} ${{ env.VERSION }}"
       - name: Create GitHub release
-        if: steps.tag_create.outputs.tag_exists == 'false'
+        if: env.RELEASE_EXISTS == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create $VERSION --draft --verify-tag --title $VERSION
     outputs:
       version: ${{ env.VERSION }}
-      tag_exists: ${{ steps.tag_create.outputs.tag_exists }}
+      release_exists: ${{ env.RELEASE_EXISTS }}
 
   build-release:
     needs: ["create-release"]
-    if: needs.create-release.outputs.tag_exists == 'false'
+    if: needs.create-release.outputs.release_exists == 'false'
 
     runs-on: ${{ matrix.os }}
     env:
