@@ -70,6 +70,7 @@ Cargo Binstall downloads pre-built binaries from the GitHub releases page and in
 2. **If you don't have Rust installed**, make sure to add the Cargo bin directory to your PATH.
     <details>
     The Binstall installer will tell you if you need to do this and conveniently print the path in question.
+
     - **Linux/MacOS**
 
         Temporarily:
