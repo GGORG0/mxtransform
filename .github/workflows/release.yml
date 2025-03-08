@@ -43,6 +43,8 @@ jobs:
         run: |
           echo "version is: $VERSION"
       - name: Check for existing release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           res="$(gh release view $VERSION --json id,tagName,createdAt,publishedAt)"
           if [ $? -eq 0 ]; then
