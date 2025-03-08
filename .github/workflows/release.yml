@@ -35,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Get the crate version
         run: echo "VERSION=${{ needs.get-crate-metadata.outputs.crate_version }}" >> $GITHUB_ENV
       - name: Show the version
@@ -44,9 +46,9 @@ jobs:
         id: tag_create
         uses: rickstaa/action-create-tag@v1
         with:
-          tag: "v${{ env.CRATE_VERSION }}"
+          tag: "v${{ env.VERSION }}"
           tag_exists_error: false
-          message: "Release ${{ needs.get-crate-metadata.outputs.crate_name }} ${{ env.CRATE_VERSION }}"
+          message: "Release ${{ needs.get-crate-metadata.outputs.crate_name }} ${{ env.VERSION }}"
       - name: Create GitHub release
         if: steps.tag_create.outputs.tag_exists == 'false'
         env:
