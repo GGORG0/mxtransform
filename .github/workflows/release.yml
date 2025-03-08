@@ -46,15 +46,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          res="$(gh release view $VERSION --json id,tagName,createdAt,publishedAt)"
-          if [ $? -eq 0 ]; then
+          if ! gh release view $VERSION --json id; then
             echo "Release already exists!"
+            gh release view $VERSION --json id,tagName,createdAt,publishedAt
             echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
           else
             echo "Release doesn't exist."
             echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
           fi
-          echo -e "GH CLI output:\n$res"
       - name: Create tag
         id: tag_create
         if: env.RELEASE_EXISTS == 'false'
