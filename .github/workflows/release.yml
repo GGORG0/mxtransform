@@ -2,8 +2,8 @@ name: release
 
 on:
   push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - master
 
 permissions:
   contents: write
@@ -16,28 +16,28 @@ jobs:
       - name: Get the crate and binary names
         run: |
           echo "CRATE_NAME=$(cargo metadata --format-version=1 | jq -r '. as $root | .packages[] | select(.id == $root.resolve.root) | .name')" >> $GITHUB_ENV
+          echo "CRATE_VERSION=$(cargo metadata --format-version=1 | jq -r '. as $root | .packages[] | select(.id == $root.resolve.root) | .version')" >> $GITHUB_ENV
           echo "BINARY_NAME=$(cargo metadata --format-version=1 | jq -r '. as $root | first(.packages[] | select(.id == $root.resolve.root) | .targets[] | select(.kind[] | contains("bin")) | .name) // (.packages[] | select(.id == $root.resolve.root) | .name)')" >> $GITHUB_ENV
     outputs:
       crate_name: ${{ env.CRATE_NAME }}
+      crate_version: ${{ env.CRATE_VERSION }}
       binary_name: ${{ env.BINARY_NAME }}
 
   create-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Get the release version from the tag
-        if: env.VERSION == ''
-        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+      - name: Get the crate version
+        run: echo "VERSION=${{ needs.get-crate-metadata.outputs.crate_version }}" >> $GITHUB_ENV
       - name: Show the version
         run: |
           echo "version is: $VERSION"
-      - name: Check that tag version and Cargo.toml version are the same
-        shell: bash
-        run: |
-          if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
-            echo "version does not match Cargo.toml" >&2
-            exit 1
-          fi
+      - name: Create tag
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: "v${{ env.CRATE_VERSION }}"
+          tag_exists_error: false
+          message: "Release ${{ needs.get-crate-metadata.outputs.crate_name }} ${{ env.CRATE_VERSION }}"
       - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
