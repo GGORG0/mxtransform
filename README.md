@@ -1,6 +1,8 @@
 # MXTransform
 
-MXTransform is a Rust program for doing matrix transformations on images.
+MXTransform is a Rust program for doing [matrix transformations](https://en.wikipedia.org/wiki/Transformation_matrix) on images.
+
+See some example transformations [here](https://en.wikipedia.org/wiki/Transformation_matrix#Examples_in_2_dimensions). 2D transformations are supported, which means you have to provide a 2x2 matrix.
 
 ## Usage
 
@@ -8,24 +10,39 @@ Run `mxtransform --help` to see the detailed usage information.
 
 In general, you need to provide an input image with `-i` or `--input`, a transformation matrix with `-m` or `--matrix`, and an output image with `-o` or `--output`.
 
-For example, to transform `input.png` to `output.png` using the following matrix, which will stretch the image horizontally by a factor of 2:
+### Input format
 
-```text
-| 2 0 |
-| 0 1 |
-```
+- In case you need to provide a negative number as the first argument to an option, you can use `=` to indicate that the following arguments are not options. For example, to provide a negative X offset of -1920 you have to use: `-f=-1920,0` or `--offset=-1920,0`. This is not required if the first argument is positive.
 
-You would run:
+- Matrices are provided as comma-separated values. For example, the following matrix:
 
-```sh
-mxtransform -i input.png -o output.png -m 2,0,0,1
-```
+    ```text
+    | 1 2 |
+    | 3 4 |
+    ```
 
-You can also specify an offset with `-f` or `--offset` followed by `X,Y`, in case the image ends up outside the bounds of the output image. For example to stretch the image horizontally by a factor of 2 and move the result 1920 pixels to the left:
+    Would be provided as `-m 1,2,3,4` or `--matrix 1,2,3,4`. See above for how to provide negative numbers.
 
-```sh
-mxtransform -i input.png -o output.png -m 2,0,0,1 -f -1920,0
-```
+### Examples
+
+- To transform `input.png` to `output.png` using the following matrix, which will stretch the image horizontally by a factor of 2:
+
+    ```text
+    | 2 0 |
+    | 0 1 |
+    ```
+
+    You would run:
+
+    ```sh
+    mxtransform -i input.png -o output.png -m 2,0,0,1
+    ```
+
+- You can also specify an offset with `-f` or `--offset` followed by `X,Y`, in case the image ends up outside the bounds of the output image. For example to stretch the image horizontally by a factor of 2 and move the result 1920 pixels to the left:
+
+    ```sh
+    mxtransform -i input.png -o output.png -m 2,0,0,1 -f=-1920,0
+    ```
 
 ## Installation
 
