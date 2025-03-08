@@ -54,6 +54,7 @@ jobs:
               echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
             else
               echo "Release already exists!"
+              echo "VERSION=${{ needs.get-crate-metadata.outputs.crate_version }}-dirty" >> $GITHUB_ENV
               echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
             fi
           else
@@ -77,10 +78,8 @@ jobs:
       version: ${{ env.VERSION }}
       release_exists: ${{ env.RELEASE_EXISTS }}
 
-  build-release:
+  build:
     needs: ["create-release", "get-crate-metadata"]
-    if: needs.create-release.outputs.release_exists == 'false'
-
     runs-on: ${{ matrix.os }}
     env:
       CARGO: cargo
@@ -219,18 +218,24 @@ jobs:
           mkdir -p "$ARCHIVE"
           cp "$BIN" "$ARCHIVE"/
 
-      - name: Build archive (Windows)
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARCHIVE }}
+          path: ${{ env.ARCHIVE }}
+
+      - name: Build release archive (Windows)
         shell: bash
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && needs.create-release.outputs.release_exists == 'false'
         run: |
           7z a "$ARCHIVE.zip" "$ARCHIVE"
           certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
           echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
           echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
 
-      - name: Build archive (Unix)
+      - name: Build release archive (Unix)
         shell: bash
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && needs.create-release.outputs.release_exists == 'false'
         run: |
           tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
           shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
@@ -238,9 +243,21 @@ jobs:
           echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV
 
       - name: Upload release archive
+        if: needs.create-release.outputs.release_exists == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           version="${{ needs.create-release.outputs.version }}"
           gh release upload "$version" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
+
+  publish-release:
+    needs: ["create-release", "build"]
+    if: needs.create-release.outputs.release_exists == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit $VERSION --draft=false --verify-tag
