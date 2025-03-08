@@ -1,0 +1,209 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  get-crate-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get the crate and binary names
+        run: |
+          echo "CRATE_NAME=$(cargo metadata --format-version=1 | jq -r '. as $root | .packages[] | select(.id == $root.resolve.root) | .name')" >> $GITHUB_ENV
+          echo "BINARY_NAME=$(cargo metadata --format-version=1 | jq -r '. as $root | first(.packages[] | select(.id == $root.resolve.root) | .targets[] | select(.kind[] | contains("bin")) | .name) // (.packages[] | select(.id == $root.resolve.root) | .name)')" >> $GITHUB_ENV
+    outputs:
+      crate_name: ${{ env.CRATE_NAME }}
+      binary_name: ${{ env.BINARY_NAME }}
+
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get the release version from the tag
+        if: env.VERSION == ''
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+      - name: Show the version
+        run: |
+          echo "version is: $VERSION"
+      - name: Check that tag version and Cargo.toml version are the same
+        shell: bash
+        run: |
+          if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
+            echo "version does not match Cargo.toml" >&2
+            exit 1
+          fi
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create $VERSION --draft --verify-tag --title $VERSION
+    outputs:
+      version: ${{ env.VERSION }}
+
+  build-release:
+    needs: ["create-release"]
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO: cargo
+      TARGET_FLAGS: ""
+      TARGET_DIR: ./target
+      RUST_BACKTRACE: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: nightly
+            target: x86_64-unknown-linux-musl
+            strip: x86_64-linux-musl-strip
+          - build: stable-x86
+            os: ubuntu-latest
+            rust: stable
+            target: i686-unknown-linux-gnu
+            strip: x86_64-linux-gnu-strip
+            qemu: i386
+          - build: stable-aarch64
+            os: ubuntu-latest
+            rust: stable
+            target: aarch64-unknown-linux-gnu
+            strip: aarch64-linux-gnu-strip
+            qemu: qemu-aarch64
+          - build: stable-arm-gnueabihf
+            os: ubuntu-latest
+            rust: stable
+            target: armv7-unknown-linux-gnueabihf
+            strip: arm-linux-gnueabihf-strip
+            qemu: qemu-arm
+          - build: stable-arm-musleabihf
+            os: ubuntu-latest
+            rust: stable
+            target: armv7-unknown-linux-musleabihf
+            strip: arm-linux-musleabihf-strip
+            qemu: qemu-arm
+          - build: stable-arm-musleabi
+            os: ubuntu-latest
+            rust: stable
+            target: armv7-unknown-linux-musleabi
+            strip: arm-linux-musleabi-strip
+            qemu: qemu-arm
+          - build: stable-powerpc64
+            os: ubuntu-latest
+            rust: stable
+            target: powerpc64-unknown-linux-gnu
+            strip: powerpc64-linux-gnu-strip
+            qemu: qemu-ppc64
+          - build: stable-s390x
+            os: ubuntu-latest
+            rust: stable
+            target: s390x-unknown-linux-gnu
+            strip: s390x-linux-gnu-strip
+            qemu: qemu-s390x
+          - build: macos
+            os: macos-latest
+            rust: nightly
+            target: x86_64-apple-darwin
+          - build: win-msvc
+            os: windows-latest
+            rust: nightly
+            target: x86_64-pc-windows-msvc
+          - build: win-gnu
+            os: windows-latest
+            rust: nightly-x86_64-gnu
+            target: x86_64-pc-windows-gnu
+          - build: win32-msvc
+            os: windows-latest
+            rust: nightly
+            target: i686-pc-windows-msvc
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+
+      - name: Install Cross
+        if: matrix.os == 'ubuntu-latest' && matrix.target != ''
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/cross-download"
+          mkdir "$dir"
+          echo "$dir" >> $GITHUB_PATH
+          cd "$dir"
+          curl -LO "https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-musl.tar.gz"
+          tar xf cross-x86_64-unknown-linux-musl.tar.gz
+          echo "CARGO=cross" >> $GITHUB_ENV
+
+      - name: Set target variables
+        shell: bash
+        run: |
+          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+
+      - name: Show command used for Cargo
+        shell: bash
+        run: |
+          echo "cargo command is: ${{ env.CARGO }}"
+          echo "target flag is: ${{ env.TARGET_FLAGS }}"
+          echo "target dir is: ${{ env.TARGET_DIR }}"
+
+      - name: Build release binary
+        shell: bash
+        run: |
+          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
+
+          binary_name="${{ needs.get-crate-metadata.outputs.binary_name }}"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            bin="${{ env.TARGET_DIR }}/release/$binary_name.exe"
+          else
+            bin="${{ env.TARGET_DIR }}/release/$binary_name"
+          fi
+          echo "BIN=$bin" >> $GITHUB_ENV
+
+      - name: Determine archive name
+        shell: bash
+        run: |
+          crate_name="${{ needs.get-crate-metadata.outputs.crate_name }}"
+          version="${{ needs.create-release.outputs.version }}"
+          echo "ARCHIVE=$crate_name-$version-${{ matrix.target }}" >> $GITHUB_ENV
+
+      - name: Create directory for archive
+        shell: bash
+        run: |
+          mkdir -p "$ARCHIVE"
+          cp "$BIN" "$ARCHIVE"/
+
+      - name: Build archive (Windows)
+        shell: bash
+        if: matrix.os == 'windows-latest'
+        run: |
+          7z a "$ARCHIVE.zip" "$ARCHIVE"
+          certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
+          echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
+          echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
+
+      - name: Build archive (Unix)
+        shell: bash
+        if: matrix.os != 'windows-latest'
+        run: |
+          tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
+          shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
+          echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV
+
+      - name: Upload release archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          version="${{ needs.create-release.outputs.version }}"
+          gh release upload "$version" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
