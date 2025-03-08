@@ -3,7 +3,7 @@ mod images;
 use clap::Parser;
 use color_eyre::Result;
 use indicatif::{ProgressBar, ProgressStyle};
-use ndarray::{Array2, Array3, s};
+use ndarray::{s, Array2, Array3};
 use std::{path::PathBuf, time::Instant};
 
 /// Transform images with the help of matrices
