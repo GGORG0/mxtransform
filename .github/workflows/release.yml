@@ -46,9 +46,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if ! gh release view $VERSION --json id; then
+          if gh release view $VERSION --json id,tagName,createdAt,publishedAt; then
             echo "Release already exists!"
-            gh release view $VERSION --json id,tagName,createdAt,publishedAt
             echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
           else
             echo "Release doesn't exist."
