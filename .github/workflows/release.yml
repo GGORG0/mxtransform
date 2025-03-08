@@ -71,7 +71,7 @@ jobs:
       release_exists: ${{ env.RELEASE_EXISTS }}
 
   build-release:
-    needs: ["create-release"]
+    needs: ["create-release", "get-crate-metadata"]
     if: needs.create-release.outputs.release_exists == 'false'
 
     runs-on: ${{ matrix.os }}
@@ -194,6 +194,7 @@ jobs:
           else
             bin="${{ env.TARGET_DIR }}/release/$binary_name"
           fi
+          echo "binary is: $bin"
           echo "BIN=$bin" >> $GITHUB_ENV
 
       - name: Determine archive name
@@ -201,7 +202,9 @@ jobs:
         run: |
           crate_name="${{ needs.get-crate-metadata.outputs.crate_name }}"
           version="${{ needs.create-release.outputs.version }}"
-          echo "ARCHIVE=$crate_name-$version-${{ matrix.target }}" >> $GITHUB_ENV
+          archive_name="$crate_name-$version-${{ matrix.target }}"
+          echo "archive name: $archive_name"
+          echo "ARCHIVE=$archive_name" >> $GITHUB_ENV
 
       - name: Create directory for archive
         shell: bash
