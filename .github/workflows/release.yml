@@ -46,9 +46,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view $VERSION --json id,tagName,createdAt,publishedAt; then
-            echo "Release already exists!"
-            echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
+          if gh release view $VERSION --json id,tagName,createdAt,publishedAt,isDraft; then
+            is_draft=$(gh release view $VERSION --json isDraft | jq -r '.isDraft')
+            if [ "$is_draft" = "true" ]; then
+              echo "Release is a draft, deleting it."
+              gh release delete $VERSION --yes --cleanup-tag
+              echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
+            else
+              echo "Release already exists!"
+              echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
+            fi
           else
             echo "Release doesn't exist."
             echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
