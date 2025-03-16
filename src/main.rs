@@ -5,7 +5,7 @@ use color_eyre::Result;
 use faer::linalg::solvers::DenseSolveCore;
 use faer_ext::{IntoFaer, IntoNdarray};
 use indicatif::{ProgressBar, ProgressStyle};
-use ndarray::{s, Array2, Array3};
+use ndarray::{s, Array1, Array2, Array3};
 use std::{fmt::Debug, path::PathBuf, time::Instant};
 
 /// Transform images with the help of matrices
@@ -35,6 +35,10 @@ struct Args {
     /// The dimensions of the output image (set to 0 to keep the original dimensions)
     #[arg(short, long, value_parser = parse_nums::<usize, 2>)]
     dims: Option<[usize; 2]>,
+
+    /// The color of the background in RGBA format
+    #[arg(short, long, value_parser = parse_nums::<u8, 4>)]
+    background: Option<[u8; 4]>,
 }
 
 fn parse_nums<T, const N: usize>(s: &str) -> Result<[T; N], String>
@@ -100,7 +104,16 @@ fn main() -> Result<()> {
 
     println!("Output image dimensions: {}x{}", out_width, out_height);
 
-    let mut output = Array3::<u8>::zeros((out_height, out_width, 3));
+    let mut output = Array3::<u8>::zeros((out_height, out_width, 4));
+
+    if let Some(background) = args.background {
+        let background: Array1<u8> = Array1::from_vec(background.to_vec());
+        for y in 0..out_height {
+            for x in 0..out_width {
+                output.slice_mut(s![y, x, ..]).assign(&background);
+            }
+        }
+    }
 
     let time = Instant::now();
 
