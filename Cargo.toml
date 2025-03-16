@@ -20,6 +20,8 @@ exclude = [
 [dependencies]
 clap = { version = "4.5.31", features = ["derive"] }
 color-eyre = "0.6.3"
+faer = "0.21.7"
+faer-ext = { version = "0.5.0", features = ["ndarray"] }
 image = "0.25.5"
 indicatif = "0.17.11"
 ndarray = "0.16.1"
