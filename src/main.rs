@@ -6,7 +6,12 @@ use color_eyre::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use matrix_ext::MatrixExt;
 use ndarray::{s, Array1, Array2, Array3};
+use owo_colors::OwoColorize as _;
 use std::{fmt::Debug, path::PathBuf, time::Instant};
+
+const CHECKMARK: &str = "✓";
+const CROSS: &str = "✗";
+const WARNING: &str = "⚠";
 
 /// Transform images with the help of matrices
 #[derive(Parser, Debug)]
@@ -68,10 +73,19 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Args::parse();
 
-    println!("Loading image: {}...", args.input.display());
-    let array = images::load_image(&args.input)?;
-    let (height, width, _) = array.dim();
-    println!("Input image dimensions: {}x{}", width, height);
+    println!(
+        "{}",
+        format!("Loading image: {}...", args.input.display().yellow()).blue()
+    );
+
+    let (array, (width, height)) = images::load_image(&args.input)?;
+
+    println!(
+        "{} {} {}",
+        CHECKMARK.green(),
+        "Loaded image with dimensions:".green(),
+        format!("({}, {})", width, height).yellow()
+    );
 
     let matrix_vec = args.matrix.to_vec();
     let swapped_matrix = [matrix_vec[0], matrix_vec[2], matrix_vec[1], matrix_vec[3]];
@@ -79,18 +93,31 @@ fn main() -> Result<()> {
     let matrix = {
         let mut matrix = Array2::from_shape_vec((2, 2), swapped_matrix.to_vec()).unwrap();
         if args.inverse {
+            if matrix.det() == 0.0 {
+                eprintln!(
+                    "{}",
+                    format!("{CROSS} The determinant of the matrix is 0, the transformation is not invertible!")
+                        .red()
+                        .bold()
+                );
+                return Ok(());
+            }
             matrix.invert();
         }
         matrix
     };
 
-    println!("Transformation matrix:");
+    println!("{}", "Transformation matrix:".blue());
     matrix.print();
 
-    println!("Determinant: {}", matrix.det());
+    println!("{} {}", "Matrix determinant:".blue(), matrix.det().yellow());
 
     if let Some(offset) = &args.offset {
-        println!("Offset: ({}, {})", offset[0], offset[1]);
+        println!(
+            "{} {}",
+            "Offset:".blue(),
+            format!("({}, {})", offset[0], offset[1]).yellow()
+        );
     }
 
     let offset = args.offset.unwrap_or([0, 0]);
@@ -105,7 +132,11 @@ fn main() -> Result<()> {
         _ => out_dims[1],
     };
 
-    println!("Output image dimensions: {}x{}", out_width, out_height);
+    println!(
+        "{} {}",
+        "Output image dimensions:".blue(),
+        format!("({}, {})", out_width, out_height).yellow()
+    );
 
     let mut output = Array3::<u8>::zeros((out_height, out_width, 4));
 
@@ -167,20 +198,36 @@ fn main() -> Result<()> {
         pb.finish();
     }
 
-    println!("Done! Took: {:?}", time.elapsed());
+    // println!("Done! Took: {:?}", time.elapsed());
+    println!(
+        "{} {} {:?}",
+        format!("{CHECKMARK} Done!").green(),
+        "Took:".blue(),
+        time.elapsed().yellow()
+    );
 
     println!(
-        "Actual bounding box: ({}, {}) - ({}, {})",
-        min_x, min_y, max_x, max_y
+        "{} {}",
+        "Actual bounding box:".blue(),
+        format!("({}, {}) - ({}, {})", min_x, min_y, max_x, max_y).yellow()
     );
 
     if cut_off {
-        println!("Some pixels were cut off!");
+        println!("{}", format!("{WARNING} Some pixels were cut off!").red());
     }
+
+    println!(
+        "{}",
+        format!("Saving image: {}...", args.output.display().yellow()).blue()
+    );
 
     images::save_image(output, &args.output)?;
 
-    println!("Saved image: {}", args.output.display());
+    println!(
+        "{} {}",
+        format!("{CHECKMARK} Saved image with dimensions:").green(),
+        format!("({}, {})", out_width, out_height).yellow()
+    );
 
     Ok(())
 }
