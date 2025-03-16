@@ -198,7 +198,6 @@ fn main() -> Result<()> {
         pb.finish();
     }
 
-    // println!("Done! Took: {:?}", time.elapsed());
     println!(
         "{} {} {:?}",
         format!("{CHECKMARK} Done!").green(),
