@@ -1,10 +1,10 @@
 mod images;
+mod matrix_ext;
 
 use clap::Parser;
 use color_eyre::Result;
-use faer::linalg::solvers::DenseSolveCore;
-use faer_ext::{IntoFaer, IntoNdarray};
 use indicatif::{ProgressBar, ProgressStyle};
+use matrix_ext::MatrixExt;
 use ndarray::{s, Array1, Array2, Array3};
 use std::{fmt::Debug, path::PathBuf, time::Instant};
 
@@ -79,12 +79,15 @@ fn main() -> Result<()> {
     let matrix = {
         let mut matrix = Array2::from_shape_vec((2, 2), swapped_matrix.to_vec()).unwrap();
         if args.inverse {
-            matrix = invert_matrix(matrix);
+            matrix.invert();
         }
         matrix
     };
 
-    print_matrix(&matrix);
+    println!("Transformation matrix:");
+    matrix.print();
+
+    println!("Determinant: {}", matrix.det());
 
     if let Some(offset) = &args.offset {
         println!("Offset: ({}, {})", offset[0], offset[1]);
@@ -180,28 +183,4 @@ fn main() -> Result<()> {
     println!("Saved image: {}", args.output.display());
 
     Ok(())
-}
-
-fn print_matrix(matrix: &Array2<f32>) {
-    println!("Transformation matrix:");
-    for row in matrix.rows() {
-        print!("| ");
-        for value in row {
-            print!("{:>5.2} ", value);
-        }
-        println!("|");
-    }
-
-    {
-        let m_faer = matrix.view().into_faer();
-        let det = m_faer.determinant();
-        println!("Determinant: {}", det);
-    }
-}
-
-fn invert_matrix(matrix: Array2<f32>) -> Array2<f32> {
-    println!("Inverting matrix...");
-    let m_faer = matrix.view().into_faer();
-    let inv = m_faer.full_piv_lu().inverse();
-    inv.as_ref().into_ndarray().to_owned()
 }
