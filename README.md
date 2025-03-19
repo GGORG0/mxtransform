@@ -46,6 +46,22 @@ In general, you need to provide an input image with `-i` or `--input`, a transfo
 
 ## Installation
 
+### From source
+
+1. Clone or download this repository
+2. Install Rust by using the official installer from [rustup.rs](https://rustup.rs/).
+3. Build the project using Cargo:
+
+    ```sh
+    cargo build --release
+    ```
+
+4. You can now run MXTransform from the `target/release` directory:
+
+    ```sh
+    target/release/mxtransform --help
+    ```
+
 ### Nix
 
 1. Install Nix by following the instructions [on the official website](https://nixos.org/download.html).
